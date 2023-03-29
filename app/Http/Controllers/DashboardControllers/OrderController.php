@@ -14,6 +14,7 @@ use App\Models\OrderDetails;
 use App\Models\StockDetails;
 use Illuminate\Http\Request;
 use App\Traits\HttpResponses;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\OrderResource;
@@ -57,22 +58,53 @@ class OrderController extends Controller
         // }
         //return $request;
 
-        $order = Order::create([
-            'order_description' => $request->order_description,
-            'order_date' => $orderDate,
-            'buyer_stock_number' => $request->buyer_stock_number,
-            'destination_city' => $request->destination_city,
-            'destination_address' => $request->destination_address,
-            'status_id' => '1'
-        ]);
+        DB::beginTransaction();
+        try {
+            $order = Order::create([
+                'order_description' => $request->order_description,
+                'order_date' => $orderDate,
+                'buyer_stock_number' => $request->buyer_stock_number,
+                'destination_city' => $request->destination_city,
+                'destination_address' => $request->destination_address,
+                'status_id' => '1'
+            ]);
+    
+            $buyerSeller = BuyerSeller::create([
+                'order_id' => $order->id,
+                'buyer_id' => Auth::user()->id,
+                'seller_id' => $request->seller_id
+            ]);
 
-        $buyerSeller = BuyerSeller::create([
-            'order_id' => $order->id,
-            'buyer_id' => Auth::user()->id,
-            'seller_id' => $request->seller_id
-        ]);
+            foreach ($request->drugs as $item) {
+                $stockDetails = StockDetails::find($item['stock_details_id']);
+                $productionDate = $stockDetails->production_date;
+                $expirationDate = $stockDetails->expiration_date;
+                $unitPrice = $stockDetails->drug_unit_price;
+                $drugAmount = $item['drug_amount'];
+                $totalCost = $unitPrice * $drugAmount;
 
-        return new OrderResource($order);
+                $details = [
+                    'production_date' => $productionDate ,
+                    'expiration_date' => $expirationDate ,
+                    'drug_amount' => $drugAmount,
+                    'drug_unit_price' => $unitPrice,
+                    'drug_total_cost' => $totalCost
+                ];
+
+                $order->stockDetails()->attach($item['stock_details_id'],$details);
+            }
+            DB::commit();
+            return new OrderResource($order);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+    
+            return response()->json($response, 400);
+        }
+       
     }
 
     

@@ -20,12 +20,7 @@ class OrderDetailsController extends Controller
 {
     use HttpResponses;
     
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
+    
     public function store(AddOrderDetailsRequest $request)
     {
         $request->validated($request->all());
