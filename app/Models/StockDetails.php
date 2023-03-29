@@ -35,4 +35,11 @@ class StockDetails extends Model
     {
         return $this->hasMany(OrderDetails::class);
     }
+
+
+    public function order()
+    {
+       return $this->belongsToMany(Order::class,'order_details','stock_details_id','order_id')
+            ->withTimestamps();
+    }
 }
